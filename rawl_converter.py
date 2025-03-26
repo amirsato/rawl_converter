@@ -8,7 +8,7 @@ def replace_letters_with_numbers(text):
         'lh', 'rh', 'minor', 'major', 'lydian', 'mixolydian', 'dorian', 'phrygian',
         'harmonic_minor', 'melodic_minor',
         'ch2', 'ch3', 'ch4', 'ch5', 'ch6', 'ch7', 'ch8', 'ch9', 'ch10', 'ch11', 
-        'ch12', 'ch13', 'ch14', 'ch15', 'phrases', 'sections'
+        'ch12', 'ch13', 'ch14', 'ch15', 'phrases', 'sections', 'ac'
     ]
     
     word_replacements = {
@@ -26,7 +26,7 @@ def replace_letters_with_numbers(text):
     }
     
     numbers_to_letters = {
-        '0': 'a',
+        '0': 'e',
         '1': 's',
         '2': 'd',
         '3': 'f',
