@@ -2,89 +2,108 @@ import re
 import argparse
 import os
 
-def replace_letters_with_numbers(text):
-    
-    exceptions = [
-        'lh', 'rh', 'minor', 'major', 'lydian', 'mixolydian', 'dorian', 'phrygian',
-        'harmonic_minor', 'melodic_minor',
-        'ch2', 'ch3', 'ch4', 'ch5', 'ch6', 'ch7', 'ch8', 'ch9', 'ch10', 'ch11', 
-        'ch12', 'ch13', 'ch14', 'ch15', 'phrases', 'sections', 'ac'
-    ]
-    
-    word_replacements = {
-        word: f"__SPECIAL_WORD_{i}__" for i, word in enumerate(exceptions)
-    }
-    
-    letters_to_numbers = {
+def convert_note(note):
+    """Convert a note based on old-to-new notation mapping."""
+    # Mapping for converting between old and new notation
+    old_to_new = {
+        # Core note conversions
         'a': '1',
         's': '2',
         'd': '3',
         'f': '4',
         'g': '5',
         'h': '6',
-        'j': '7'
-    }
-    
-    numbers_to_letters = {
-        '0': 'e',
-        '1': 's',
-        '2': 'd',
-        '3': 'f',
-        '4': 'g',
-        '5': 'h',
-        '6': 'j',
+        'j': '7',
+        '1': 'a',
+        '2': 's',
+        '3': 'd',
+        '4': 'f',
+        '5': 'g',
+        '6': 'h',
         '7': 'j',
         '8': 'q',
-        '9': 'w'
+        '9': 'w',
+        '0': 'e'
+    }
+    
+    # If the note is in the mapping, convert it
+    if note in old_to_new:
+        return old_to_new[note]
+    return note
+
+def replace_letters_with_numbers(text):
+    """Process the text to convert notes in lines with specific format."""
+    exceptions = [
+        'lh', 'rh', 'c', 'ac'
+    ]
+    
+    word_replacements = {
+        word: f"__SPECIAL_WORD_{i}__" for i, word in enumerate(exceptions)
     }
     
     # Compile a regular expression to find exceptions
-    # Sort words by length (from long to short) to avoid partial matches
     sorted_exceptions = sorted(exceptions, key=len, reverse=True)
     pattern = r'\b(' + '|'.join(re.escape(word) for word in sorted_exceptions) + r')\b'
     exception_regex = re.compile(pattern)
     
-    # A regular expression to find strings where you want to replace numbers with letters
-    # Format: number, space, letter i, space, content
-    num_to_letter_pattern = r'^(\d+\s+i\s+)(.+)$'
+    # A regular expression to find strings where we want to replace notes
+    # Format: number (with optional 'b' part), spaces, letter i, spaces, content
+    note_line_pattern = r'^(\d+(?:b\d+)?\s+i\s+)(.+)$'
     
     # Split the text into lines
     lines = text.split('\n')
     result_lines = []
     
+    # Track the current section (lh or rh)
+    current_section = None
+    
     for line in lines:
-        # Check if we need to replace numbers with letters in this line
-        num_to_letter_match = re.match(num_to_letter_pattern, line)
+        # Check if this line starts with 'lh' or 'rh'
+        if line.strip().startswith('lh'):
+            current_section = 'lh'
+            result_lines.append(line)
+            continue
+        elif line.strip().startswith('rh'):
+            current_section = 'rh'
+            result_lines.append(line)
+            continue
         
-        if num_to_letter_match:
+        # Check if we need to replace notes in this line
+        note_line_match = re.match(note_line_pattern, line)
+        
+        if note_line_match:
             # Split the string into prefix (number + i + space) and content
-            prefix = num_to_letter_match.group(1)
-            content = num_to_letter_match.group(2)
+            prefix = note_line_match.group(1)
+            content = note_line_match.group(2)
             
-            # Replacing numbers with letters in the content
-            content = re.sub(r'[0-9]', lambda x: numbers_to_letters[x.group()], content)
-            
-            # Process the prefix as usual (replace letters with numbers)
+            # Protect special words in prefix
             prefix = exception_regex.sub(lambda m: word_replacements.get(m.group(), m.group()), prefix)
-            prefix = re.sub(r'[asdfghj]', lambda x: letters_to_numbers[x.group()], prefix)
             
-            # Restore prefix exceptions
+            # Restore protected words
             for word, placeholder in word_replacements.items():
                 prefix = prefix.replace(placeholder, word)
+            
+            # Find all notes and other characters in content
+            note_pattern = r'[asdfghjqwertyuiop1234567890]'
+            notes = re.findall(note_pattern, content)
+            other_chars = re.split(note_pattern, content)
+            
+            # Convert each note
+            converted_notes = [convert_note(note) for note in notes]
+            
+            # Reconstruct content
+            content = ''
+            for i in range(len(converted_notes)):
+                content += other_chars[i] + converted_notes[i]
+            if len(other_chars) > len(converted_notes):
+                content += other_chars[-1]
             
             # Putting the string back together
             processed_line = prefix + content
             
         else:
-            # Temporarily replacing the exception words
-            processed_line = exception_regex.sub(lambda m: word_replacements.get(m.group(), m.group()), line)
-            
-            # Replacing letters with numbers
-            processed_line = re.sub(r'[asdfghj]', lambda x: letters_to_numbers[x.group()], processed_line)
-            
-            # Recovering exception words
-            for word, placeholder in word_replacements.items():
-                processed_line = processed_line.replace(placeholder, word)
+            # For all other lines, keep them as they are
+            processed_line = line
         
         result_lines.append(processed_line)
     
